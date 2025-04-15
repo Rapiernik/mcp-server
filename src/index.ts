@@ -396,7 +396,7 @@ class CompanyInfoServer {
                 // Format the data for better readability and structure
                 const formattedCompanyData = {
                     name: companyData.company_name,
-                    linkedInId: companyData.universal_name_id,
+                    companyId: companyData.linkedin_internal_id,
                     industry: companyData.industry,
                     specialties: companyData.specialties,
                     founded: companyData.founded,
