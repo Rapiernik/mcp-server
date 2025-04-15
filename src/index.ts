@@ -2,16 +2,323 @@
 import {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
 import {CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError,} from '@modelcontextprotocol/sdk/types.js';
-import axios from 'axios';
+
+// Define types for mock data
+interface CompanyEmployee {
+    name: string;
+    position: string;
+    link: string;
+}
+
+interface CompanyUpdate {
+    text: string;
+    article_posted_date: string;
+    total_likes: number;
+    article_title: string;
+    article_link: string;
+}
+
+interface CompanyInfo {
+    company_name: string;
+    linkedin_internal_id: string;
+    industry: string;
+    specialties: string;
+    founded: string;
+    company_size: string;
+    company_size_on_linkedin: string;
+    type: string;
+    website: string;
+    headquarters: string;
+    locations: string[];
+    about: string;
+    employees: CompanyEmployee[];
+    updates: CompanyUpdate[];
+}
+
+interface JobPosting {
+    jobId: string;
+    jobPosition: string;
+    jobLink: string;
+    companyName: string;
+    companyProfile: string;
+    jobLocation: string;
+    jobPostingDate: string;
+}
+
+interface JobDetail {
+    jobPosition: string;
+    jobLocation: string;
+    companyName: string;
+    companyLinkedinId: string;
+    jobPostingTime: string;
+    jobDescription: string;
+    seniorityLevel: string;
+    employmentType: string;
+    jobFunction: string;
+    industries: string;
+}
+
+// Mock data with appropriate type definitions
+const MOCK_COMPANY_INFO: Record<string, CompanyInfo> = {
+    'rtl-nederland': {
+        company_name: 'RTL Nederland',
+        linkedin_internal_id: '1234567',
+        industry: 'Media Production',
+        specialties: 'Broadcasting, Advertising, Digital Media, Content Creation, Television',
+        founded: '1989',
+        company_size: '1001-5000 employees',
+        company_size_on_linkedin: '1563 employees on LinkedIn',
+        type: 'Public Company',
+        website: 'www.rtl.nl',
+        headquarters: 'Hilversum, North Holland, Netherlands',
+        locations: ['Hilversum, North Holland, Netherlands'],
+        about: 'RTL Nederland is a leading media company in entertainment, news and information. We touch the lives of millions of people every day.',
+        employees: [
+            { name: 'Sven Sauvé', position: 'CEO', link: 'linkedin.com/in/svensauve' },
+            { name: 'Bart Verhoeven', position: 'CTO', link: 'linkedin.com/in/bartverhoeven' },
+            { name: 'Peter van der Vorst', position: 'Content Director', link: 'linkedin.com/in/petervandervorst' }
+        ],
+        updates: [
+            {
+                text: 'RTL is launching a new streaming platform',
+                article_posted_date: '2023-10-01',
+                total_likes: 245,
+                article_title: 'New Streaming Platform Launch',
+                article_link: 'linkedin.com/company/rtl-nederland/posts/new-streaming'
+            },
+            {
+                text: 'RTL Tech Team expanding with new AI initiatives',
+                article_posted_date: '2023-09-15',
+                total_likes: 187,
+                article_title: 'Technology Innovation',
+                article_link: 'linkedin.com/company/rtl-nederland/posts/tech-innovation'
+            }
+        ]
+    },
+    'npo': {
+        company_name: 'Nederlandse Publieke Omroep',
+        linkedin_internal_id: '7654321',
+        industry: 'Broadcast Media',
+        specialties: 'Public Broadcasting, Television, Radio, Digital Media',
+        founded: '1969',
+        company_size: '1001-5000 employees',
+        company_size_on_linkedin: '1248 employees on LinkedIn',
+        type: 'Government Agency',
+        website: 'www.npo.nl',
+        headquarters: 'Hilversum, North Holland, Netherlands',
+        locations: ['Hilversum, North Holland, Netherlands'],
+        about: 'NPO is the Dutch public broadcaster, providing television, radio and digital content to the Dutch public.',
+        employees: [
+            { name: 'Frans Klein', position: 'Media Director', link: 'linkedin.com/in/fransklein' },
+            { name: 'Martijn van Dam', position: 'Chairman', link: 'linkedin.com/in/martijnvandam' },
+            { name: 'Jurre Bosman', position: 'Radio Director', link: 'linkedin.com/in/jurrebosman' }
+        ],
+        updates: [
+            {
+                text: 'NPO enhances digital accessibility features',
+                article_posted_date: '2023-10-05',
+                total_likes: 156,
+                article_title: 'Digital Accessibility',
+                article_link: 'linkedin.com/company/npo/posts/digital-accessibility'
+            }
+        ]
+    },
+    'shell': {
+        company_name: 'Shell',
+        linkedin_internal_id: '1543267',
+        industry: 'Oil & Energy',
+        specialties: 'Energy, Renewables, Oil, Gas, Petrochemicals',
+        founded: '1907',
+        company_size: '10001+ employees',
+        company_size_on_linkedin: '28763 employees on LinkedIn',
+        type: 'Public Company',
+        website: 'www.shell.com',
+        headquarters: 'The Hague, South Holland, Netherlands',
+        locations: ['The Hague, Netherlands', 'London, UK', 'Houston, TX'],
+        about: 'Shell is a global energy company with expertise in exploration, production, refining and marketing of oil and natural gas, and the manufacturing and marketing of chemicals.',
+        employees: [
+            { name: 'Wael Sawan', position: 'CEO', link: 'linkedin.com/in/waelsawan' },
+            { name: 'Huibert Vigeveno', position: 'Downstream Director', link: 'linkedin.com/in/huibertvigeveno' },
+            { name: 'Zoe Yujnovich', position: 'Upstream Director', link: 'linkedin.com/in/zoeyujnovich' }
+        ],
+        updates: [
+            {
+                text: 'Shell announces progress in renewable energy investments',
+                article_posted_date: '2023-09-28',
+                total_likes: 542,
+                article_title: 'Renewable Energy Investments',
+                article_link: 'linkedin.com/company/shell/posts/renewables'
+            }
+        ]
+    }
+};
+
+// Mock job postings with proper type definition
+const MOCK_JOB_POSTINGS: Record<string, JobPosting[]> = {
+    '1234567': [
+        {
+            jobId: 'job123456',
+            jobPosition: 'Senior Software Engineer',
+            jobLink: 'linkedin.com/jobs/view/senior-software-engineer-rtl-nederland',
+            companyName: 'RTL Nederland',
+            companyProfile: 'linkedin.com/company/rtl-nederland',
+            jobLocation: 'Hilversum, Netherlands',
+            jobPostingDate: '2 weeks ago'
+        },
+        {
+            jobId: 'job123457',
+            jobPosition: 'DevOps Engineer',
+            jobLink: 'linkedin.com/jobs/view/devops-engineer-rtl-nederland',
+            companyName: 'RTL Nederland',
+            companyProfile: 'linkedin.com/company/rtl-nederland',
+            jobLocation: 'Amsterdam, Netherlands',
+            jobPostingDate: '1 month ago'
+        },
+        {
+            jobId: 'job123458',
+            jobPosition: 'Data Scientist',
+            jobLink: 'linkedin.com/jobs/view/data-scientist-rtl-nederland',
+            companyName: 'RTL Nederland',
+            companyProfile: 'linkedin.com/company/rtl-nederland',
+            jobLocation: 'Hilversum, Netherlands',
+            jobPostingDate: '3 weeks ago'
+        }
+    ],
+    '7654321': [
+        {
+            jobId: 'job789456',
+            jobPosition: 'Frontend Developer',
+            jobLink: 'linkedin.com/jobs/view/frontend-developer-npo',
+            companyName: 'Nederlandse Publieke Omroep',
+            companyProfile: 'linkedin.com/company/npo',
+            jobLocation: 'Hilversum, Netherlands',
+            jobPostingDate: '1 week ago'
+        },
+        {
+            jobId: 'job789457',
+            jobPosition: 'Cloud Engineer',
+            jobLink: 'linkedin.com/jobs/view/cloud-engineer-npo',
+            companyName: 'Nederlandse Publieke Omroep',
+            companyProfile: 'linkedin.com/company/npo',
+            jobLocation: 'Hilversum, Netherlands',
+            jobPostingDate: '2 months ago'
+        }
+    ],
+    '1543267': [
+        {
+            jobId: 'job456123',
+            jobPosition: 'Machine Learning Engineer',
+            jobLink: 'linkedin.com/jobs/view/machine-learning-engineer-shell',
+            companyName: 'Shell',
+            companyProfile: 'linkedin.com/company/shell',
+            jobLocation: 'Amsterdam, Netherlands',
+            jobPostingDate: '3 days ago'
+        },
+        {
+            jobId: 'job456124',
+            jobPosition: 'Data Engineer',
+            jobLink: 'linkedin.com/jobs/view/data-engineer-shell',
+            companyName: 'Shell',
+            companyProfile: 'linkedin.com/company/shell',
+            jobLocation: 'The Hague, Netherlands',
+            jobPostingDate: '1 month ago'
+        },
+        {
+            jobId: 'job456125',
+            jobPosition: 'Cloud Security Architect',
+            jobLink: 'linkedin.com/jobs/view/cloud-security-architect-shell',
+            companyName: 'Shell',
+            companyProfile: 'linkedin.com/company/shell',
+            jobLocation: 'Rotterdam, Netherlands',
+            jobPostingDate: '2 weeks ago'
+        }
+    ]
+};
+
+// Mock job details with proper type definition
+const MOCK_JOB_DETAILS: Record<string, JobDetail> = {
+    'job123456': {
+        jobPosition: 'Senior Software Engineer',
+        jobLocation: 'Hilversum, Netherlands',
+        companyName: 'RTL Nederland',
+        companyLinkedinId: 'rtl-nederland',
+        jobPostingTime: '2 weeks ago',
+        jobDescription: `We are looking for a Senior Software Engineer to join our team at RTL Nederland.
+
+Requirements:
+- 5+ years experience in backend development
+- Proficiency in Java, Spring Boot, and microservices architecture
+- Experience with AWS cloud services
+- Knowledge of containerization with Docker and Kubernetes
+- Familiarity with CI/CD pipelines and DevOps practices
+
+We offer:
+- Competitive salary and benefits
+- Opportunity to work on innovative streaming platforms
+- Flexible working environment
+- Professional development opportunities`,
+        seniorityLevel: 'Senior',
+        employmentType: 'Full-time',
+        jobFunction: 'Engineering',
+        industries: 'Media and Broadcasting'
+    },
+    'job789456': {
+        jobPosition: 'Frontend Developer',
+        jobLocation: 'Hilversum, Netherlands',
+        companyName: 'Nederlandse Publieke Omroep',
+        companyLinkedinId: 'npo',
+        jobPostingTime: '1 week ago',
+        jobDescription: `NPO is looking for a Frontend Developer to enhance our digital platforms.
+
+Your skills:
+- Strong proficiency in JavaScript/TypeScript, React, and modern frontend frameworks
+- Experience with responsive design and CSS preprocessors
+- Knowledge of frontend testing frameworks
+- Understanding of web accessibility standards
+- Experience with version control systems (Git)
+
+What we offer:
+- Working on high-traffic public broadcasting platforms
+- Collaborative team environment
+- Professional growth opportunities
+- Good work-life balance`,
+        seniorityLevel: 'Mid-Senior level',
+        employmentType: 'Full-time',
+        jobFunction: 'Information Technology',
+        industries: 'Broadcast Media'
+    },
+    'job456123': {
+        jobPosition: 'Machine Learning Engineer',
+        jobLocation: 'Amsterdam, Netherlands',
+        companyName: 'Shell',
+        companyLinkedinId: 'shell',
+        jobPostingTime: '3 days ago',
+        jobDescription: `Join Shell's Digital Innovation team as a Machine Learning Engineer.
+
+Responsibilities:
+- Develop and implement machine learning models for energy optimization
+- Work with big data technologies and cloud platforms
+- Collaborate with domain experts to solve complex energy challenges
+- Deploy and monitor ML solutions in production environments
+
+Requirements:
+- MSc or PhD in Computer Science, Data Science, or related field
+- Experience with Python, TensorFlow/PyTorch, and scikit-learn
+- Knowledge of cloud platforms (AWS, Azure, GCP)
+- Experience with data processing frameworks like Spark
+- Understanding of MLOps and model deployment`,
+        seniorityLevel: 'Mid-Senior level',
+        employmentType: 'Full-time',
+        jobFunction: 'Artificial Intelligence',
+        industries: 'Oil & Energy'
+    }
+};
 
 class CompanyInfoServer {
     private server: Server;
-    private readonly apiKey: string = '67fea43b49c7ece88b7d379e';
-    private readonly scrapingdogUrl: string = 'http://api.scrapingdog.com/linkedinjobs';
-    private readonly companyProfileUrl: string = 'https://api.scrapingdog.com/linkedin';
 
     constructor() {
-        console.error('[Setup] Initializing Company Information MCP server...');
+        console.error('[Setup] Initializing Company Information MCP server with mock data...');
 
         this.server = new Server(
             {
@@ -113,9 +420,9 @@ class CompanyInfoServer {
                         );
                     }
 
-                    console.error(`[API] Fetching job postings for company: ${args.company} in ${args.country}`);
+                    console.error(`[MOCK] Fetching job postings for company: ${args.company} in ${args.country} with ID: ${args.companyId}`);
 
-                    const jobPostings = await this.fetchCompanyJobPostings(args.company, args.country, args.companyId);
+                    const jobPostings = this.mockFetchCompanyJobPostings(args.company, args.country, args.companyId);
 
                     return {
                         content: [
@@ -137,9 +444,9 @@ class CompanyInfoServer {
                         );
                     }
 
-                    console.error(`[API] Fetching details for job ID: ${args.jobId}`);
+                    console.error(`[MOCK] Fetching details for job ID: ${args.jobId}`);
 
-                    const jobDetails = await this.fetchJobPostingDetails(args.jobId);
+                    const jobDetails = this.mockFetchJobPostingDetails(args.jobId);
 
                     return {
                         content: [
@@ -162,9 +469,9 @@ class CompanyInfoServer {
                         );
                     }
 
-                    console.error(`[API] Fetching company information for: ${args.companyName}`);
+                    console.error(`[MOCK] Fetching company information for: ${args.companyName}`);
 
-                    const companyInfo = await this.fetchCompanyInformation(args.companyName, args.linkedInId);
+                    const companyInfo = this.mockFetchCompanyInformation(args.companyName, args.linkedInId);
 
                     return {
                         content: [
@@ -193,262 +500,138 @@ class CompanyInfoServer {
         });
     }
 
-    private async fetchCompanyJobPostings(company: string, country: string, companyId: string) {
-        const countryGeoIdMap: { [key: string]: string } = {
-            Belgium: '100565514',
-            Netherlands: '102890719',
-        };
+    private mockFetchCompanyJobPostings(company: string, country: string, companyId: string) {
+        // Check if we have mock data for this company ID
+        if (MOCK_JOB_POSTINGS[companyId]) {
+            // Return job postings from our mock data
+            const jobPostings = MOCK_JOB_POSTINGS[companyId];
 
-        const geoid = countryGeoIdMap[country];
-        if (!geoid) {
-            throw new McpError(
-                ErrorCode.InvalidParams,
-                `LinkedIn geoid not found for country: ${country}`
-            );
-        }
-
-        let allData: object[] = [];
-        let page = 1;
-
-        try {
-            while (true) {
-                console.error(`[API] Fetching page ${page} for company ${company}`);
-
-                try {
-                    const response = await axios.get(this.scrapingdogUrl, {
-                        params: {
-                            api_key: this.apiKey,
-                            field: company,
-                            geoid,
-                            page,
-                            sort_by: 'month',
-                            filter_by_company: companyId,
-                        },
-                    });
-
-                    if (response.status === 200) {
-                        const data = response.data;
-                        if (!data || data.length === 0) {
-                            console.error(`[API] No more data returned on page ${page}`);
-                            break;
-                        }
-
-                        const filteredJobPostings = data
-                            .map((job: {
-                                job_id: string;
-                                job_position: string;
-                                job_link: string;
-                                company_name: string;
-                                company_profile: string;
-                                job_location: string;
-                                job_posting_date: string;
-                            }) => ({
-                                jobId: job.job_id,
-                                jobPosition: job.job_position,
-                                jobLink: job.job_link,
-                                companyName: job.company_name,
-                                companyProfile: job.company_profile,
-                                jobLocation: job.job_location,
-                                jobPostingDate: job.job_posting_date
-                            }))
-                            .filter((job: { jobPosition: string; }) => this.isTechnicalJob(job.jobPosition));
-
-                        console.error(`[API] Found ${filteredJobPostings.length} technical jobs on page ${page}`);
-                        allData = allData.concat(filteredJobPostings);
-                    }
-                } catch (error: any) {
-                    if (error.response && error.response.status === 404) {
-                        console.error(`[API] Reached the end of available data at page ${page}`);
-                        console.error(`[API] Message from ScrapingDog: ${error.response.data.message}`);
-                        break;
-                    } else {
-                        throw error;
-                    }
-                }
-                page++;
-            }
-
+            // Filter for just technical jobs (already filtered in our mock data)
             return {
                 company,
                 country,
-                filteredJobPostings: allData,
-                totalCount: allData.length,
+                filteredJobPostings: jobPostings,
+                totalCount: jobPostings.length,
                 timestamp: new Date().toISOString()
             };
-        } catch (error: any) {
-            console.error('[API] Error fetching job postings:', error);
+        } else {
+            // Return empty result if company ID not found in mock data
+            console.error(`[MOCK] No job postings found for company ID: ${companyId}`);
+            return {
+                company,
+                country,
+                filteredJobPostings: [],
+                totalCount: 0,
+                timestamp: new Date().toISOString()
+            };
+        }
+    }
+
+    private mockFetchJobPostingDetails(jobId: string) {
+        // Check if we have mock data for this job ID
+        if (MOCK_JOB_DETAILS[jobId]) {
+            // Return job details from our mock data
+            return {
+                jobId,
+                jobDetails: MOCK_JOB_DETAILS[jobId],
+                timestamp: new Date().toISOString()
+            };
+        } else {
             throw new McpError(
-                ErrorCode.InternalError,
-                `Failed to fetch job postings: ${error.message}`
+                ErrorCode.InvalidParams,
+                `Job posting with ID ${jobId} not found in mock data`
             );
         }
     }
 
-    private async fetchJobPostingDetails(jobId: string) {
-        try {
-            console.error(`[API] Fetching details for job ID: ${jobId}`);
+    private mockFetchCompanyInformation(companyName: string, linkedInId?: string) {
+        // Determine which LinkedIn ID to use
+        let linkId = linkedInId || this.generateLinkedInId(companyName);
 
-            const response = await axios.get(this.scrapingdogUrl, {
-                params: {
-                    api_key: this.apiKey,
-                    job_id: jobId,
-                },
-            });
+        // Check if we have mock data for this LinkedIn ID
+        if (MOCK_COMPANY_INFO[linkId]) {
+            const companyData = MOCK_COMPANY_INFO[linkId];
 
-            if (response.status === 200) {
-                const data = response.data;
-                if (!data || data.length === 0) {
-                    throw new McpError(
-                        ErrorCode.InvalidParams,
-                        `No details found for job ID: ${jobId}`
-                    );
+            // Format the data for better readability and structure
+            const formattedCompanyData = {
+                name: companyData.company_name,
+                companyId: companyData.linkedin_internal_id,
+                industry: companyData.industry,
+                specialties: companyData.specialties,
+                founded: companyData.founded,
+                companySize: companyData.company_size,
+                companySizeOnLinkedIn: companyData.company_size_on_linkedin,
+                companyType: companyData.type,
+                website: companyData.website,
+                headquarters: companyData.headquarters,
+                locations: companyData.locations,
+                about: companyData.about,
+                employees: companyData.employees,
+                recentUpdates: companyData.updates && companyData.updates.length > 0
+                    ? companyData.updates.map((update) => ({
+                        text: update.text,
+                        postedDate: update.article_posted_date,
+                        likes: update.total_likes,
+                        title: update.article_title,
+                        link: update.article_link
+                    }))
+                    : [],
+            };
+
+            return {
+                companyName: companyName,
+                linkedInId: linkId,
+                companyData: formattedCompanyData,
+                timestamp: new Date().toISOString()
+            };
+        } else {
+            // Try to find a partial match
+            for (const [id, info] of Object.entries(MOCK_COMPANY_INFO)) {
+                if (info.company_name.toLowerCase().includes(companyName.toLowerCase())) {
+                    // Found a partial match, use it
+                    linkId = id;
+                    const companyData = MOCK_COMPANY_INFO[linkId];
+
+                    // Format the data for better readability and structure
+                    const formattedCompanyData = {
+                        name: companyData.company_name,
+                        companyId: companyData.linkedin_internal_id,
+                        industry: companyData.industry,
+                        specialties: companyData.specialties,
+                        founded: companyData.founded,
+                        companySize: companyData.company_size,
+                        companySizeOnLinkedIn: companyData.company_size_on_linkedin,
+                        companyType: companyData.type,
+                        website: companyData.website,
+                        headquarters: companyData.headquarters,
+                        locations: companyData.locations,
+                        about: companyData.about,
+                        employees: companyData.employees,
+                        recentUpdates: companyData.updates && companyData.updates.length > 0
+                            ? companyData.updates.map((update) => ({
+                                text: update.text,
+                                postedDate: update.article_posted_date,
+                                likes: update.total_likes,
+                                title: update.article_title,
+                                link: update.article_link
+                            }))
+                            : [],
+                    };
+
+                    return {
+                        companyName: companyName,
+                        linkedInId: linkId,
+                        companyData: formattedCompanyData,
+                        timestamp: new Date().toISOString()
+                    };
                 }
-
-                // Map the job details to a better format, excluding similar_jobs, recruiter_details, and people_also_viewed
-                const jobDetails = data.map((job: {
-                    job_position: string;
-                    job_location: string;
-                    company_name: string;
-                    company_linkedin_id: string;
-                    job_posting_time: string;
-                    job_description: string;
-                    Seniority_level: string;
-                    Employment_type: string;
-                    Job_function: string;
-                    Industries: string;
-                }) => ({
-                    jobPosition: job.job_position,
-                    jobLocation: job.job_location,
-                    companyName: job.company_name,
-                    companyLinkedinId: job.company_linkedin_id,
-                    jobPostingTime: job.job_posting_time,
-                    jobDescription: job.job_description,
-                    seniorityLevel: job.Seniority_level,
-                    employmentType: job.Employment_type,
-                    jobFunction: job.Job_function,
-                    industries: job.Industries,
-                }));
-
-                return {
-                    jobId,
-                    jobDetails: jobDetails[0],
-                    timestamp: new Date().toISOString()
-                };
-            } else {
-                throw new McpError(
-                    ErrorCode.InternalError,
-                    `Unexpected response status: ${response.status}`
-                );
-            }
-        } catch (error: any) {
-            console.error('[API] Error fetching job details:', error);
-
-            if (error.response && error.response.status === 404) {
-                throw new McpError(
-                    ErrorCode.InvalidParams,
-                    `Job posting with ID ${jobId} not found`
-                );
-            } else {
-                throw new McpError(
-                    ErrorCode.InternalError,
-                    `Failed to fetch job details: ${error.message}`
-                );
-            }
-        }
-    }
-
-    private async fetchCompanyInformation(companyName: string, linkedInId?: string) {
-        try {
-            console.error(`[API] Fetching company information for: ${companyName}`);
-
-            // If linkedInId is provided, use it directly
-            let linkId = linkedInId;
-
-            // If linkedInId is not provided, try to determine it from company name
-            if (!linkId) {
-                // Generate a likely LinkedIn ID from company name
-                linkId = this.generateLinkedInId(companyName);
-                console.error(`[API] Generated LinkedIn ID: ${linkId}`);
             }
 
-            // Fetch the company profile from ScrapingDog
-            const response = await axios.get(this.companyProfileUrl, {
-                params: {
-                    api_key: this.apiKey,
-                    type: 'company',
-                    linkId: linkId,
-                },
-            });
-
-            if (response.status === 200) {
-                const data = response.data;
-
-                if (!data || data.length === 0) {
-                    throw new McpError(
-                        ErrorCode.InvalidParams,
-                        `No information found for company: ${companyName}`
-                    );
-                }
-
-                // Process the company data
-                const companyData = data[0]; // The response is an array with the company as the first item
-
-                // Format the data for better readability and structure
-                const formattedCompanyData = {
-                    name: companyData.company_name,
-                    companyId: companyData.linkedin_internal_id,
-                    industry: companyData.industry,
-                    specialties: companyData.specialties,
-                    founded: companyData.founded,
-                    companySize: companyData.company_size,
-                    companySizeOnLinkedIn: companyData.company_size_on_linkedin,
-                    companyType: companyData.type,
-                    website: companyData.website,
-                    headquarters: companyData.headquarters,
-                    locations: companyData.locations,
-                    about: companyData.about,
-
-                    // Key people
-                    employees: companyData.employees,
-
-                    // Recent activity
-                    recentUpdates: companyData.updates && companyData.updates.length > 0
-                        ? companyData.updates.slice(0, 3).map((update: any) => ({
-                            text: update.text,
-                            postedDate: update.article_posted_date,
-                            likes: update.total_likes,
-                            title: update.article_title,
-                            link: update.article_link
-                        }))
-                        : [],
-                };
-
-                return {
-                    companyName: companyName,
-                    linkedInId: linkId,
-                    companyData: formattedCompanyData,
-                    timestamp: new Date().toISOString()
-                };
-            } else {
-                throw new McpError(
-                    ErrorCode.InternalError,
-                    `Unexpected response status: ${response.status}`
-                );
-            }
-        } catch (error: any) {
-            console.error('[API] Error fetching company information:', error);
-
-            if (error.response && error.response.status === 404) {
-                throw new McpError(
-                    ErrorCode.InvalidParams,
-                    `Company profile not found for: ${companyName}. LinkedIn ID tried: ${linkedInId || this.generateLinkedInId(companyName)}`
-                );
-            } else {
-                throw new McpError(
-                    ErrorCode.InternalError,
-                    `Failed to fetch company information: ${error.message}`
-                );
-            }
+            // If no match found at all, throw an error
+            throw new McpError(
+                ErrorCode.InvalidParams,
+                `Company information not found for: ${companyName} with LinkedIn ID: ${linkId}`
+            );
         }
     }
 
@@ -510,89 +693,10 @@ class CompanyInfoServer {
             .trim();
     }
 
-    private isTechnicalJob(jobTitle: string) {
-        const techKeywords = [
-            'engineer',
-            'ingénieur',
-            'developer',
-            'développeur',
-            'architect',
-            'architecte',
-            'machine learning',
-            'apprentissage automatique',
-            'kunstmatige intelligentie',
-            'intelligence artificielle',
-            'backend',
-            'back end',
-            'arrière-plan',
-            'front end',
-            'frontend',
-            'interface utilisateur',
-            'full stack',
-            'fullstack',
-            'pile complète',
-            'software',
-            'logiciel',
-            'logiciel développeur',
-            'softwareontwikkelaar',
-            'développeur de logiciels',
-            'data scientist',
-            'scientifique des données',
-            'datawetenschapper',
-            'ml',
-            'apprentissage automatique',
-            'ai engineer',
-            'ingénieur en intelligence artificielle',
-            'artificial intelligence',
-            'intelligence artificielle',
-            'cloud',
-            'nuage',
-            'informatique en nuage',
-            'devops',
-            'security engineer',
-            'ingénieur en sécurité',
-            'beveiligingsingenieur',
-            'embedded',
-            'embarqué',
-            'systems engineer',
-            'ingénieur en systèmes',
-            'systeemingenieur',
-            'ingénieur système',
-            'robotics',
-            'robotique',
-            'robotica',
-            'computer vision',
-            'vision par ordinateur',
-            'computervisie',
-            'aws',
-            'amazon web services',
-            'azure',
-            'gcp',
-            'google cloud',
-            'cloud architect',
-            'architecte cloud',
-            'cloud ingenieur',
-            'ingénieur cloud',
-            'cloud engineer',
-            'cloud security',
-            'sécurité du cloud',
-            'cloudbeveiliging',
-            'kubernetes',
-            'docker',
-            'serverless',
-            'sans serveur',
-            'python',
-        ];
-
-        const lowerCaseTitle = jobTitle.toLowerCase();
-        const matches = techKeywords.filter(keyword => lowerCaseTitle.includes(keyword));
-        return matches.length > 0;
-    }
-
     async run() {
         const transport = new StdioServerTransport();
         await this.server.connect(transport);
-        console.error('Company Information MCP server running on stdio');
+        console.error('Company Information MCP server with MOCK DATA running on stdio');
     }
 }
 
