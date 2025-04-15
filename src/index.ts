@@ -6,7 +6,7 @@ import axios from 'axios';
 
 class CompanyInfoServer {
     private server: Server;
-    private readonly apiKey: string = '67fe722f3237e5533103a23b';
+    private readonly apiKey: string = '67fe79685a406598c1b21d57';
     private readonly scrapingdogUrl: string = 'http://api.scrapingdog.com/linkedinjobs';
     private readonly companyProfileUrl: string = 'https://api.scrapingdog.com/linkedin';
 
