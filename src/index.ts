@@ -8,6 +8,7 @@ class CompanyInfoServer {
     private server: Server;
     private readonly apiKey: string = '67fe45b2831f67afa8cfd8b1';
     private readonly scrapingdogUrl: string = 'http://api.scrapingdog.com/linkedinjobs';
+    private readonly companyProfileUrl: string = 'https://api.scrapingdog.com/linkedin';
 
     constructor() {
         console.error('[Setup] Initializing Company Information MCP server...');
@@ -73,6 +74,24 @@ class CompanyInfoServer {
                         required: ['jobId'],
                     },
                 },
+                {
+                    name: 'get_company_information',
+                    description: 'Get detailed profile information about a company from LinkedIn, including company details, employees, and recent updates',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            companyName: {
+                                type: 'string',
+                                description: 'Company name to search for',
+                            },
+                            linkedInId: {
+                                type: 'string',
+                                description: 'LinkedIn Company ID (from URL, e.g., "rtl-nederland" from "https://www.linkedin.com/company/rtl-nederland")',
+                            },
+                        },
+                        required: ['companyName'],
+                    },
+                },
             ],
         }));
 
@@ -127,6 +146,31 @@ class CompanyInfoServer {
                             {
                                 type: 'text',
                                 text: JSON.stringify(jobDetails, null, 2),
+                            },
+                        ],
+                    };
+                } else if (toolName === 'get_company_information') {
+                    const args = request.params.arguments as {
+                        companyName: string;
+                        linkedInId?: string;
+                    };
+
+                    if (!args.companyName) {
+                        throw new McpError(
+                            ErrorCode.InvalidParams,
+                            'Missing required parameter: companyName'
+                        );
+                    }
+
+                    console.error(`[API] Fetching company information for: ${args.companyName}`);
+
+                    const companyInfo = await this.fetchCompanyInformation(args.companyName, args.linkedInId);
+
+                    return {
+                        content: [
+                            {
+                                type: 'text',
+                                text: JSON.stringify(companyInfo, null, 2),
                             },
                         ],
                     };
@@ -311,6 +355,159 @@ class CompanyInfoServer {
                 );
             }
         }
+    }
+
+    private async fetchCompanyInformation(companyName: string, linkedInId?: string) {
+        try {
+            console.error(`[API] Fetching company information for: ${companyName}`);
+
+            // If linkedInId is provided, use it directly
+            let linkId = linkedInId;
+
+            // If linkedInId is not provided, try to determine it from company name
+            if (!linkId) {
+                // Generate a likely LinkedIn ID from company name
+                linkId = this.generateLinkedInId(companyName);
+                console.error(`[API] Generated LinkedIn ID: ${linkId}`);
+            }
+
+            // Fetch the company profile from ScrapingDog
+            const response = await axios.get(this.companyProfileUrl, {
+                params: {
+                    api_key: this.apiKey,
+                    type: 'company',
+                    linkId: linkId,
+                },
+            });
+
+            if (response.status === 200) {
+                const data = response.data;
+
+                if (!data || data.length === 0) {
+                    throw new McpError(
+                        ErrorCode.InvalidParams,
+                        `No information found for company: ${companyName}`
+                    );
+                }
+
+                // Process the company data
+                const companyData = data[0]; // The response is an array with the company as the first item
+
+                // Format the data for better readability and structure
+                const formattedCompanyData = {
+                    name: companyData.company_name,
+                    linkedInId: companyData.universal_name_id,
+                    industry: companyData.industry,
+                    specialties: companyData.specialties,
+                    founded: companyData.founded,
+                    companySize: companyData.company_size,
+                    companySizeOnLinkedIn: companyData.company_size_on_linkedin,
+                    companyType: companyData.type,
+                    website: companyData.website,
+                    headquarters: companyData.headquarters,
+                    locations: companyData.locations,
+                    about: companyData.about,
+
+                    // Key people
+                    employees: companyData.employees,
+
+                    // Recent activity
+                    recentUpdates: companyData.updates && companyData.updates.length > 0
+                        ? companyData.updates.slice(0, 3).map((update: any) => ({
+                            text: update.text,
+                            postedDate: update.article_posted_date,
+                            likes: update.total_likes,
+                            title: update.article_title,
+                            link: update.article_link
+                        }))
+                        : [],
+                };
+
+                return {
+                    companyName: companyName,
+                    linkedInId: linkId,
+                    companyData: formattedCompanyData,
+                    timestamp: new Date().toISOString()
+                };
+            } else {
+                throw new McpError(
+                    ErrorCode.InternalError,
+                    `Unexpected response status: ${response.status}`
+                );
+            }
+        } catch (error: any) {
+            console.error('[API] Error fetching company information:', error);
+
+            if (error.response && error.response.status === 404) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    `Company profile not found for: ${companyName}. LinkedIn ID tried: ${linkedInId || this.generateLinkedInId(companyName)}`
+                );
+            } else {
+                throw new McpError(
+                    ErrorCode.InternalError,
+                    `Failed to fetch company information: ${error.message}`
+                );
+            }
+        }
+    }
+
+    private generateLinkedInId(companyName: string): string {
+        // Common company name patterns on LinkedIn
+        const knownCompanyIds: { [key: string]: string } = {
+            'rtl nederland': 'rtl-nederland',
+            'rtl': 'rtl-nederland',
+            'npo': 'npo',
+            'nederlandse publieke omroep': 'npo',
+            'dpg media': 'dpg-media',
+            'dpg': 'dpg-media',
+            'talpa': 'talpanetwork',
+            'talpa network': 'talpanetwork',
+            'shell': 'shell',
+            'essent': 'essent',
+            'vattenfall': 'vattenfall',
+            'eneco': 'eneco',
+            'kpn': 'kpn',
+            'ing': 'ing',
+            'ing group': 'ing',
+            'abn amro': 'abnamro',
+            'abn': 'abnamro',
+            'rabobank': 'rabobank',
+            'philips': 'philips',
+            'heineken': 'heineken',
+            'unilever': 'unilever',
+            'asml': 'asml',
+            'kpmg': 'kpmg',
+            'pwc': 'pwc',
+            'deloitte': 'deloitte',
+            'ey': 'ey',
+            'tata steel': 'tata-steel-europe',
+            'bol.com': 'bol-com',
+            'bol': 'bol-com',
+            'ibm': 'ibm',
+            'microsoft': 'microsoft',
+            'google': 'google',
+            'amazon': 'amazon',
+            'booking.com': 'booking-com',
+            'booking': 'booking-com',
+        };
+
+        // Check if the company name is in our known list
+        const lowerName = companyName.toLowerCase();
+        for (const [key, value] of Object.entries(knownCompanyIds)) {
+            if (lowerName.includes(key)) {
+                return value;
+            }
+        }
+
+        // Otherwise, generate a likely LinkedIn ID
+        // Convert to lowercase, replace spaces with hyphens, remove special characters
+        return companyName
+            .toLowerCase()
+            .replace(/[^\w\s-]/g, '')  // Remove special characters
+            .replace(/\s+/g, '-')      // Replace spaces with hyphens
+            .replace(/-+/g, '-')       // Replace multiple hyphens with single hyphen
+            .trim();
     }
 
     private isTechnicalJob(jobTitle: string) {
