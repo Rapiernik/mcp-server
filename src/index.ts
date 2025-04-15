@@ -262,6 +262,74 @@ We offer:
         jobFunction: 'Engineering',
         industries: 'Media and Broadcasting'
     },
+    'job123457': {
+        jobPosition: 'DevOps Engineer',
+        jobLocation: 'Amsterdam, Netherlands',
+        companyName: 'RTL Nederland',
+        companyLinkedinId: 'rtl-nederland',
+        jobPostingTime: '1 month ago',
+        jobDescription: `RTL Nederland is seeking a DevOps Engineer to strengthen our infrastructure team.
+
+Responsibilities:
+- Implement and maintain CI/CD pipelines
+- Manage cloud infrastructure on AWS
+- Automate development and operational processes
+- Monitor system performance and troubleshoot issues
+- Work with development teams to optimize deployment workflows
+
+Requirements:
+- 3+ years of DevOps experience
+- Strong knowledge of AWS services (EC2, S3, Lambda, RDS)
+- Experience with Docker, Kubernetes, and container orchestration
+- Proficiency in infrastructure as code (Terraform, CloudFormation)
+- Knowledge of monitoring tools (Prometheus, Grafana, ELK stack)
+- CI/CD experience (Jenkins, GitHub Actions, GitLab CI)
+
+We offer:
+- Competitive compensation package
+- Hybrid working model
+- Professional development budget
+- Modern tech stack and collaborative environment`,
+        seniorityLevel: 'Mid-Senior level',
+        employmentType: 'Full-time',
+        jobFunction: 'Information Technology',
+        industries: 'Media and Broadcasting'
+    },
+    'job123458': {
+        jobPosition: 'Data Scientist',
+        jobLocation: 'Hilversum, Netherlands',
+        companyName: 'RTL Nederland',
+        companyLinkedinId: 'rtl-nederland',
+        jobPostingTime: '3 weeks ago',
+        jobDescription: `RTL Nederland is looking for a Data Scientist to join our growing Data & Analytics team.
+
+Your role:
+- Develop and implement machine learning models to enhance our recommender systems
+- Analyze user behavior data to improve content personalization
+- Work with big data technologies to process and analyze large datasets
+- Collaborate with product teams to integrate insights into user-facing applications
+- Present findings to stakeholders and translate insights into actionable recommendations
+
+Requirements:
+- MSc or PhD in Computer Science, Statistics, or related quantitative field
+- 2+ years of professional experience in data science or machine learning
+- Strong programming skills in Python, including libraries such as Pandas, NumPy, scikit-learn
+- Experience with SQL and data processing at scale
+- Knowledge of modern machine learning frameworks (TensorFlow, PyTorch)
+- Understanding of recommendation systems and personalization algorithms
+- Experience with cloud platforms (preferably AWS)
+
+What we offer:
+- Work on data projects that impact millions of viewers daily
+- Access to rich user behavior datasets
+- Collaborative, innovative work environment
+- Continuous learning and development opportunities
+- Competitive compensation and flexible working conditions`,
+        seniorityLevel: 'Mid-Senior level',
+        employmentType: 'Full-time',
+        jobFunction: 'Data Science',
+        industries: 'Media and Broadcasting'
+    },
     'job789456': {
         jobPosition: 'Frontend Developer',
         jobLocation: 'Hilversum, Netherlands',
@@ -282,6 +350,39 @@ What we offer:
 - Collaborative team environment
 - Professional growth opportunities
 - Good work-life balance`,
+        seniorityLevel: 'Mid-Senior level',
+        employmentType: 'Full-time',
+        jobFunction: 'Information Technology',
+        industries: 'Broadcast Media'
+    },
+    'job789457': {
+        jobPosition: 'Cloud Engineer',
+        jobLocation: 'Hilversum, Netherlands',
+        companyName: 'Nederlandse Publieke Omroep',
+        companyLinkedinId: 'npo',
+        jobPostingTime: '2 months ago',
+        jobDescription: `NPO is seeking a Cloud Engineer to help manage and optimize our cloud infrastructure.
+
+Responsibilities:
+- Design, implement and maintain cloud-based solutions on AWS
+- Migrate and modernize existing applications to cloud architecture
+- Implement security best practices and ensure compliance
+- Optimize cloud costs and performance
+- Support development teams with infrastructure needs
+
+Requirements:
+- 3+ years experience with AWS services and architecture
+- Knowledge of infrastructure as code (Terraform or CloudFormation)
+- Experience with containerization (Docker, Kubernetes)
+- Understanding of networking, security, and compliance in cloud environments
+- Experience with monitoring and logging solutions
+
+We offer:
+- Work with modern cloud technologies
+- Impact millions of Dutch viewers through your work
+- Professional development opportunities
+- Good work-life balance with flexible hours
+- Collaborative, mission-driven environment`,
         seniorityLevel: 'Mid-Senior level',
         employmentType: 'Full-time',
         jobFunction: 'Information Technology',
@@ -310,6 +411,76 @@ Requirements:
         seniorityLevel: 'Mid-Senior level',
         employmentType: 'Full-time',
         jobFunction: 'Artificial Intelligence',
+        industries: 'Oil & Energy'
+    },
+    'job456124': {
+        jobPosition: 'Data Engineer',
+        jobLocation: 'The Hague, Netherlands',
+        companyName: 'Shell',
+        companyLinkedinId: 'shell',
+        jobPostingTime: '1 month ago',
+        jobDescription: `Shell is looking for a Data Engineer to join our Digital team.
+
+Your role:
+- Design, build, and maintain data pipelines and ETL processes
+- Implement data storage solutions that are scalable and efficient
+- Collaborate with data scientists to deploy models to production
+- Ensure data quality, consistency, and availability across platforms
+- Work with modern big data and cloud technologies
+
+Requirements:
+- Bachelor's or Master's degree in Computer Science, Engineering, or related field
+- 3+ years of experience in data engineering roles
+- Strong SQL skills and experience with data warehousing concepts
+- Experience with cloud platforms (AWS, Azure, or GCP)
+- Knowledge of big data technologies (Hadoop, Spark, Kafka)
+- Programming skills in Python and/or Java
+- Understanding of data modeling, data access, and data storage techniques
+
+We offer:
+- Opportunity to work on global-scale data challenges
+- Collaborative environment with cross-functional teams
+- Competitive compensation and benefits
+- Professional development opportunities
+- Hybrid working model`,
+        seniorityLevel: 'Mid-Senior level',
+        employmentType: 'Full-time',
+        jobFunction: 'Data Engineering',
+        industries: 'Oil & Energy'
+    },
+    'job456125': {
+        jobPosition: 'Cloud Security Architect',
+        jobLocation: 'Rotterdam, Netherlands',
+        companyName: 'Shell',
+        companyLinkedinId: 'shell',
+        jobPostingTime: '2 weeks ago',
+        jobDescription: `Shell is seeking a Cloud Security Architect to strengthen our digital security posture.
+
+Responsibilities:
+- Design and implement security architecture for cloud environments
+- Develop security standards, guidelines, and best practices
+- Conduct security assessments and risk analysis
+- Collaborate with IT and development teams on secure solutions
+- Stay current with emerging security threats and mitigation strategies
+
+Requirements:
+- 5+ years of experience in IT security
+- Strong knowledge of cloud security principles and technologies
+- Experience with major cloud platforms (AWS, Azure, GCP)
+- Understanding of compliance frameworks (ISO 27001, NIST, etc.)
+- Knowledge of DevSecOps practices and tools
+- Security certifications (CISSP, CCSP, or equivalent)
+- Experience with implementing zero-trust architecture
+
+What we offer:
+- Leadership role in defining security standards
+- Complex and challenging security landscape
+- Competitive compensation package
+- Professional growth opportunities
+- Collaborative international environment`,
+        seniorityLevel: 'Senior',
+        employmentType: 'Full-time',
+        jobFunction: 'Information Security',
         industries: 'Oil & Energy'
     }
 };
