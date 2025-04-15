@@ -2,16 +2,19 @@
 import {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
 import {CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError,} from '@modelcontextprotocol/sdk/types.js';
+import axios from 'axios';
 
-class MockServer {
+class CompanyInfoServer {
     private server: Server;
+    private readonly apiKey: string = '67fe45b2831f67afa8cfd8b1';
+    private readonly scrapingdogUrl: string = 'http://api.scrapingdog.com/linkedinjobs';
 
     constructor() {
-        console.error('[Setup] Initializing Health Advice MCP server...');
+        console.error('[Setup] Initializing Company Information MCP server...');
 
         this.server = new Server(
             {
-                name: 'health-advice-server',
+                name: 'company-info-server',
                 version: '0.1.0',
             },
             {
@@ -34,17 +37,40 @@ class MockServer {
         this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
             tools: [
                 {
-                    name: 'get_health_advice',
-                    description: 'Get health advice for various conditions',
+                    name: 'get_company_job_postings',
+                    description: 'Get technical job postings for a specified company',
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            condition: {
+                            company: {
                                 type: 'string',
-                                description: 'Health condition (e.g. headache, hangover)',
+                                description: 'Company name',
+                            },
+                            country: {
+                                type: 'string',
+                                description: 'Country (Belgium or Netherlands)',
+                                enum: ['Belgium', 'Netherlands']
+                            },
+                            companyId: {
+                                type: 'string',
+                                description: 'LinkedIn Company ID',
                             },
                         },
-                        required: ['condition'],
+                        required: ['company', 'country', 'companyId'],
+                    },
+                },
+                {
+                    name: 'get_job_posting_details',
+                    description: 'Get detailed information about a specific job posting',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            jobId: {
+                                type: 'string',
+                                description: 'LinkedIn Job ID',
+                            },
+                        },
+                        required: ['jobId'],
                     },
                 },
             ],
@@ -54,88 +80,62 @@ class MockServer {
             try {
                 const toolName = request.params.name;
 
-                if (toolName !== 'get_health_advice') {
+                if (toolName === 'get_company_job_postings') {
+                    const args = request.params.arguments as {
+                        company: string;
+                        country: string;
+                        companyId: string;
+                    };
+
+                    if (!args.company || !args.country || !args.companyId) {
+                        throw new McpError(
+                            ErrorCode.InvalidParams,
+                            'Missing required parameters: company, country, or companyId'
+                        );
+                    }
+
+                    console.error(`[API] Fetching job postings for company: ${args.company} in ${args.country}`);
+
+                    const jobPostings = await this.fetchCompanyJobPostings(args.company, args.country, args.companyId);
+
+                    return {
+                        content: [
+                            {
+                                type: 'text',
+                                text: JSON.stringify(jobPostings, null, 2),
+                            },
+                        ],
+                    };
+                } else if (toolName === 'get_job_posting_details') {
+                    const args = request.params.arguments as {
+                        jobId: string;
+                    };
+
+                    if (!args.jobId) {
+                        throw new McpError(
+                            ErrorCode.InvalidParams,
+                            'Missing required parameter: jobId'
+                        );
+                    }
+
+                    console.error(`[API] Fetching details for job ID: ${args.jobId}`);
+
+                    const jobDetails = await this.fetchJobPostingDetails(args.jobId);
+
+                    return {
+                        content: [
+                            {
+                                type: 'text',
+                                text: JSON.stringify(jobDetails, null, 2),
+                            },
+                        ],
+                    };
+                } else {
                     throw new McpError(
                         ErrorCode.MethodNotFound,
                         `Unknown tool: ${toolName}`
                     );
                 }
-
-                const args = request.params.arguments as { condition: string };
-
-                if (!args.condition) {
-                    throw new McpError(
-                        ErrorCode.InvalidParams,
-                        'Missing required parameter: condition'
-                    );
-                }
-
-                console.error(`[API] Fetching health advice for condition: ${args.condition}`);
-
-                // Simulate API delay
-                await new Promise(resolve => setTimeout(resolve, 300));
-
-                // Mock health advice responses
-                const healthResponses: Record<string, any> = {
-                    "hangover": {
-                        advice: "Drink plenty of water and rest. Take some painkillers if needed and eat light, bland foods.",
-                        severity: "moderate",
-                        recovery_time: "24 hours"
-                    },
-                    "headache": {
-                        advice: "Try ibuprofen or a cold compress. Rest in a dark, quiet room and stay hydrated.",
-                        severity: "mild",
-                        recovery_time: "2-4 hours"
-                    },
-                    "cold": {
-                        advice: "Get plenty of rest and drink fluids. Over-the-counter medications can help with symptoms.",
-                        severity: "mild",
-                        recovery_time: "7-10 days"
-                    },
-                    "fever": {
-                        advice: "Take acetaminophen or ibuprofen to reduce fever. See a doctor if temperature exceeds 103°F (39.4°C) or persists for more than 3 days.",
-                        severity: "moderate",
-                        recovery_time: "3-5 days"
-                    },
-                    "cough": {
-                        advice: "Stay hydrated and use honey to soothe your throat. Over-the-counter cough suppressants may help at night.",
-                        severity: "mild",
-                        recovery_time: "1-2 weeks"
-                    },
-                    "sore throat": {
-                        advice: "Gargle with warm salt water, drink warm liquids, and use throat lozenges. Rest your voice when possible.",
-                        severity: "mild",
-                        recovery_time: "5-7 days"
-                    },
-                    "back pain": {
-                        advice: "Apply ice for the first 48-72 hours, then switch to heat. Gentle stretching and over-the-counter pain relievers can help.",
-                        severity: "moderate",
-                        recovery_time: "2-4 weeks"
-                    },
-                    "sprain": {
-                        advice: "Follow the RICE protocol: Rest, Ice, Compression, and Elevation. Avoid weight-bearing activities until pain subsides.",
-                        severity: "moderate",
-                        recovery_time: "1-6 weeks depending on severity"
-                    }
-                };
-
-                const response = healthResponses[args.condition.toLowerCase()] || {
-                    advice: "No specific advice found for this condition. If symptoms persist, please consult with a healthcare professional.",
-                    severity: "unknown",
-                    recovery_time: "unknown"
-                };
-
-                response.timestamp = new Date().toISOString();
-                response.disclaimer = "This is mock health advice and should not replace professional medical consultation.";
-
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: JSON.stringify(response, null, 2),
-                        },
-                    ],
-                };
             } catch (error: unknown) {
                 if (error instanceof Error) {
                     console.error('[Error] Failed to process request:', error);
@@ -149,12 +149,255 @@ class MockServer {
         });
     }
 
+    private async fetchCompanyJobPostings(company: string, country: string, companyId: string) {
+        const countryGeoIdMap: { [key: string]: string } = {
+            Belgium: '100565514',
+            Netherlands: '102890719',
+        };
+
+        const geoid = countryGeoIdMap[country];
+        if (!geoid) {
+            throw new McpError(
+                ErrorCode.InvalidParams,
+                `LinkedIn geoid not found for country: ${country}`
+            );
+        }
+
+        let allData: object[] = [];
+        let page = 1;
+
+        try {
+            while (true) {
+                console.error(`[API] Fetching page ${page} for company ${company}`);
+
+                try {
+                    const response = await axios.get(this.scrapingdogUrl, {
+                        params: {
+                            api_key: this.apiKey,
+                            field: company,
+                            geoid,
+                            page,
+                            sort_by: 'month',
+                            filter_by_company: companyId,
+                        },
+                    });
+
+                    if (response.status === 200) {
+                        const data = response.data;
+                        if (!data || data.length === 0) {
+                            console.error(`[API] No more data returned on page ${page}`);
+                            break;
+                        }
+
+                        const filteredJobPostings = data
+                            .map((job: {
+                                job_id: string;
+                                job_position: string;
+                                job_link: string;
+                                company_name: string;
+                                company_profile: string;
+                                job_location: string;
+                                job_posting_date: string;
+                            }) => ({
+                                jobId: job.job_id,
+                                jobPosition: job.job_position,
+                                jobLink: job.job_link,
+                                companyName: job.company_name,
+                                companyProfile: job.company_profile,
+                                jobLocation: job.job_location,
+                                jobPostingDate: job.job_posting_date
+                            }))
+                            .filter((job: { jobPosition: string; }) => this.isTechnicalJob(job.jobPosition));
+
+                        console.error(`[API] Found ${filteredJobPostings.length} technical jobs on page ${page}`);
+                        allData = allData.concat(filteredJobPostings);
+                    }
+                } catch (error: any) {
+                    if (error.response && error.response.status === 404) {
+                        console.error(`[API] Reached the end of available data at page ${page}`);
+                        console.error(`[API] Message from ScrapingDog: ${error.response.data.message}`);
+                        break;
+                    } else {
+                        throw error;
+                    }
+                }
+                page++;
+            }
+
+            return {
+                company,
+                country,
+                filteredJobPostings: allData,
+                totalCount: allData.length,
+                timestamp: new Date().toISOString()
+            };
+        } catch (error: any) {
+            console.error('[API] Error fetching job postings:', error);
+            throw new McpError(
+                ErrorCode.InternalError,
+                `Failed to fetch job postings: ${error.message}`
+            );
+        }
+    }
+
+    private async fetchJobPostingDetails(jobId: string) {
+        try {
+            console.error(`[API] Fetching details for job ID: ${jobId}`);
+
+            const response = await axios.get(this.scrapingdogUrl, {
+                params: {
+                    api_key: this.apiKey,
+                    job_id: jobId,
+                },
+            });
+
+            if (response.status === 200) {
+                const data = response.data;
+                if (!data || data.length === 0) {
+                    throw new McpError(
+                        ErrorCode.InvalidParams,
+                        `No details found for job ID: ${jobId}`
+                    );
+                }
+
+                // Map the job details to a better format, excluding similar_jobs, recruiter_details, and people_also_viewed
+                const jobDetails = data.map((job: {
+                    job_position: string;
+                    job_location: string;
+                    company_name: string;
+                    company_linkedin_id: string;
+                    job_posting_time: string;
+                    job_description: string;
+                    Seniority_level: string;
+                    Employment_type: string;
+                    Job_function: string;
+                    Industries: string;
+                }) => ({
+                    jobPosition: job.job_position,
+                    jobLocation: job.job_location,
+                    companyName: job.company_name,
+                    companyLinkedinId: job.company_linkedin_id,
+                    jobPostingTime: job.job_posting_time,
+                    jobDescription: job.job_description,
+                    seniorityLevel: job.Seniority_level,
+                    employmentType: job.Employment_type,
+                    jobFunction: job.Job_function,
+                    industries: job.Industries,
+                }));
+
+                return {
+                    jobId,
+                    jobDetails: jobDetails[0],
+                    timestamp: new Date().toISOString()
+                };
+            } else {
+                throw new McpError(
+                    ErrorCode.InternalError,
+                    `Unexpected response status: ${response.status}`
+                );
+            }
+        } catch (error: any) {
+            console.error('[API] Error fetching job details:', error);
+
+            if (error.response && error.response.status === 404) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    `Job posting with ID ${jobId} not found`
+                );
+            } else {
+                throw new McpError(
+                    ErrorCode.InternalError,
+                    `Failed to fetch job details: ${error.message}`
+                );
+            }
+        }
+    }
+
+    private isTechnicalJob(jobTitle: string) {
+        const techKeywords = [
+            'engineer',
+            'ingénieur',
+            'developer',
+            'développeur',
+            'architect',
+            'architecte',
+            'machine learning',
+            'apprentissage automatique',
+            'kunstmatige intelligentie',
+            'intelligence artificielle',
+            'backend',
+            'back end',
+            'arrière-plan',
+            'front end',
+            'frontend',
+            'interface utilisateur',
+            'full stack',
+            'fullstack',
+            'pile complète',
+            'software',
+            'logiciel',
+            'logiciel développeur',
+            'softwareontwikkelaar',
+            'développeur de logiciels',
+            'data scientist',
+            'scientifique des données',
+            'datawetenschapper',
+            'ml',
+            'apprentissage automatique',
+            'ai engineer',
+            'ingénieur en intelligence artificielle',
+            'artificial intelligence',
+            'intelligence artificielle',
+            'cloud',
+            'nuage',
+            'informatique en nuage',
+            'devops',
+            'security engineer',
+            'ingénieur en sécurité',
+            'beveiligingsingenieur',
+            'embedded',
+            'embarqué',
+            'systems engineer',
+            'ingénieur en systèmes',
+            'systeemingenieur',
+            'ingénieur système',
+            'robotics',
+            'robotique',
+            'robotica',
+            'computer vision',
+            'vision par ordinateur',
+            'computervisie',
+            'aws',
+            'amazon web services',
+            'azure',
+            'gcp',
+            'google cloud',
+            'cloud architect',
+            'architecte cloud',
+            'cloud ingenieur',
+            'ingénieur cloud',
+            'cloud engineer',
+            'cloud security',
+            'sécurité du cloud',
+            'cloudbeveiliging',
+            'kubernetes',
+            'docker',
+            'serverless',
+            'sans serveur',
+            'python',
+        ];
+
+        const lowerCaseTitle = jobTitle.toLowerCase();
+        const matches = techKeywords.filter(keyword => lowerCaseTitle.includes(keyword));
+        return matches.length > 0;
+    }
+
     async run() {
         const transport = new StdioServerTransport();
         await this.server.connect(transport);
-        console.error('Health Advice MCP server running on stdio');
+        console.error('Company Information MCP server running on stdio');
     }
 }
 
-const server = new MockServer();
+const server = new CompanyInfoServer();
 server.run().catch(console.error);
