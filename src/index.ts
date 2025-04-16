@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import axios from 'axios';
 import {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
 import {CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError,} from '@modelcontextprotocol/sdk/types.js';
@@ -74,9 +75,9 @@ const MOCK_COMPANY_INFO: Record<string, CompanyInfo> = {
         locations: ['Hilversum, North Holland, Netherlands'],
         about: 'RTL Nederland is a leading media company in entertainment, news and information. We touch the lives of millions of people every day.',
         employees: [
-            { name: 'Sven Sauvé', position: 'CEO', link: 'linkedin.com/in/svensauve' },
-            { name: 'Bart Verhoeven', position: 'CTO', link: 'linkedin.com/in/bartverhoeven' },
-            { name: 'Peter van der Vorst', position: 'Content Director', link: 'linkedin.com/in/petervandervorst' }
+            {name: 'Sven Sauvé', position: 'CEO', link: 'linkedin.com/in/svensauve'},
+            {name: 'Bart Verhoeven', position: 'CTO', link: 'linkedin.com/in/bartverhoeven'},
+            {name: 'Peter van der Vorst', position: 'Content Director', link: 'linkedin.com/in/petervandervorst'}
         ],
         updates: [
             {
@@ -109,9 +110,9 @@ const MOCK_COMPANY_INFO: Record<string, CompanyInfo> = {
         locations: ['Hilversum, North Holland, Netherlands'],
         about: 'NPO is the Dutch public broadcaster, providing television, radio and digital content to the Dutch public.',
         employees: [
-            { name: 'Frans Klein', position: 'Media Director', link: 'linkedin.com/in/fransklein' },
-            { name: 'Martijn van Dam', position: 'Chairman', link: 'linkedin.com/in/martijnvandam' },
-            { name: 'Jurre Bosman', position: 'Radio Director', link: 'linkedin.com/in/jurrebosman' }
+            {name: 'Frans Klein', position: 'Media Director', link: 'linkedin.com/in/fransklein'},
+            {name: 'Martijn van Dam', position: 'Chairman', link: 'linkedin.com/in/martijnvandam'},
+            {name: 'Jurre Bosman', position: 'Radio Director', link: 'linkedin.com/in/jurrebosman'}
         ],
         updates: [
             {
@@ -137,9 +138,9 @@ const MOCK_COMPANY_INFO: Record<string, CompanyInfo> = {
         locations: ['The Hague, Netherlands', 'London, UK', 'Houston, TX'],
         about: 'Shell is a global energy company with expertise in exploration, production, refining and marketing of oil and natural gas, and the manufacturing and marketing of chemicals.',
         employees: [
-            { name: 'Wael Sawan', position: 'CEO', link: 'linkedin.com/in/waelsawan' },
-            { name: 'Huibert Vigeveno', position: 'Downstream Director', link: 'linkedin.com/in/huibertvigeveno' },
-            { name: 'Zoe Yujnovich', position: 'Upstream Director', link: 'linkedin.com/in/zoeyujnovich' }
+            {name: 'Wael Sawan', position: 'CEO', link: 'linkedin.com/in/waelsawan'},
+            {name: 'Huibert Vigeveno', position: 'Downstream Director', link: 'linkedin.com/in/huibertvigeveno'},
+            {name: 'Zoe Yujnovich', position: 'Upstream Director', link: 'linkedin.com/in/zoeyujnovich'}
         ],
         updates: [
             {
@@ -570,6 +571,32 @@ class CompanyInfoServer {
                         required: ['companyName'],
                     },
                 },
+                {
+                    name: 'get_employee_work_email',
+                    description: 'Find work email address for an employee at a specific company',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            domain: {
+                                type: 'string',
+                                description: 'Company domain (e.g., "example.com")',
+                            },
+                            firstName: {
+                                type: 'string',
+                                description: 'First name of the employee',
+                            },
+                            lastName: {
+                                type: 'string',
+                                description: 'Last name of the employee',
+                            },
+                            companyName: {
+                                type: 'string',
+                                description: 'Company name',
+                            },
+                        },
+                        required: ['domain', 'firstName', 'lastName', 'companyName'],
+                    },
+                },
             ],
         }));
 
@@ -652,6 +679,40 @@ class CompanyInfoServer {
                             },
                         ],
                     };
+                } else if (toolName === 'get_employee_work_email') {
+                    const args = request.params.arguments as {
+                        domain: string;
+                        firstName: string;
+                        lastName: string;
+                        companyName: string;
+                    };
+
+                    if (!args.domain) {
+                        throw new McpError(
+                            ErrorCode.InvalidParams,
+                            'Missing required parameter: domain'
+                        );
+                    }
+
+                    if (!args.firstName || !args.lastName) {
+                        throw new McpError(
+                            ErrorCode.InvalidParams,
+                            'You must provide either firstName and lastName'
+                        );
+                    }
+
+                    console.error(`[API] Finding work email for employee at domain: ${args.domain}`);
+
+                    const emailResult = await this.fetchEmployeeEmail(args);
+
+                    return {
+                        content: [
+                            {
+                                type: 'text',
+                                text: JSON.stringify(emailResult, null, 2),
+                            },
+                        ],
+                    };
                 } else {
                     throw new McpError(
                         ErrorCode.MethodNotFound,
@@ -669,6 +730,100 @@ class CompanyInfoServer {
                 throw error;
             }
         });
+    }
+
+    private async fetchEmployeeEmail(args: {
+        domain: string;
+        firstName: string;
+        lastName: string;
+        companyName: string;
+    }) {
+        const {domain, firstName, lastName, companyName} = args;
+
+        try {
+            let requestBody: any = {domain};
+
+            requestBody.first_name = firstName;
+            requestBody.last_name = lastName;
+            requestBody.full_name = `${firstName} ${lastName}`;
+            requestBody.company = companyName;
+
+            console.error(`[API] Making request to AnymailFinder for: ${JSON.stringify(requestBody)}`);
+
+            const url = "https://api.anymailfinder.com/v5.0/search/person.json";
+
+            const ANY_MAIL_API_KEY = process.env.ANY_MAIL_API_KEY;
+            if (!ANY_MAIL_API_KEY) {
+                throw new McpError(
+                    ErrorCode.InternalError,
+                    'Missing AnymailFinder API key'
+                );
+            }
+            const response = await axios.post(url, requestBody, {
+                headers: {
+                    "Authorization": `Bearer ${ANY_MAIL_API_KEY}`,
+                    "Content-Type": "application/json",
+                },
+                validateStatus: (status) => status >= 200 && status < 500, // Accept any response for custom handling
+            });
+
+            console.error(`[API] Received response with status: ${response.status}`);
+
+            const data = response.data;
+
+            if (response.status === 200 && data.success) {
+                // Successful response
+                return {
+                    email: data.results.email,
+                    valid: data.results.validation === "valid",
+                    success: data.success,
+                    timestamp: new Date().toISOString()
+                };
+            } else if (response.status === 400 || response.status === 401) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    `Invalid request: ${data.error_explained || 'Authentication error'}`
+                );
+            } else if (response.status === 402) {
+                throw new McpError(
+                    ErrorCode.InternalError,
+                    `Insufficient credits: ${data.error_explained || 'Account has insufficient credits'}`
+                );
+            } else if (response.status === 404 || response.status === 451) {
+                return {
+                    message: "Email not found",
+                    timestamp: new Date().toISOString()
+                };
+            } else {
+                throw new McpError(
+                    ErrorCode.InternalError,
+                    `Unknown error: ${response.status} ${response.statusText}`
+                );
+            }
+        } catch (error: any) {
+            console.error('[API] Error fetching employee email:', error);
+
+            if (error instanceof McpError) {
+                throw error; // Re-throw MCP errors
+            }
+
+            if (error.response) {
+                throw new McpError(
+                    ErrorCode.InternalError,
+                    `Request failed with status ${error.response.status}: ${JSON.stringify(error.response.data)}`
+                );
+            } else if (error.request) {
+                throw new McpError(
+                    ErrorCode.InternalError,
+                    `No response received: ${error.message}`
+                );
+            } else {
+                throw new McpError(
+                    ErrorCode.InternalError,
+                    `Error setting up request: ${error.message}`
+                );
+            }
+        }
     }
 
     private mockFetchCompanyJobPostings(company: string, country: string, companyId: string) {
