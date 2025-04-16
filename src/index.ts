@@ -771,7 +771,7 @@ class CompanyInfoServer {
 
             const data = response.data;
 
-            console.log('[API] Response data:', data);
+            console.error('[API] Response data:', data);
 
             if (response.status === 200 && data.success) {
                 // Successful response
