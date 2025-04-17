@@ -4,7 +4,6 @@ import {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
 import {CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError,} from '@modelcontextprotocol/sdk/types.js';
 
-// Define types for mock data
 interface CompanyEmployee {
     name: string;
     position: string;
@@ -59,7 +58,6 @@ interface JobDetail {
     industries: string;
 }
 
-// Mock data with appropriate type definitions
 const MOCK_COMPANY_INFO: Record<string, CompanyInfo> = {
     'rtl-nederland': {
         company_name: 'RTL Nederland',
@@ -154,7 +152,6 @@ const MOCK_COMPANY_INFO: Record<string, CompanyInfo> = {
     }
 };
 
-// Mock job postings with proper type definition
 const MOCK_JOB_POSTINGS: Record<string, JobPosting[]> = {
     '1234567': [
         {
@@ -236,7 +233,6 @@ const MOCK_JOB_POSTINGS: Record<string, JobPosting[]> = {
     ]
 };
 
-// Mock job details with proper type definition
 const MOCK_JOB_DETAILS: Record<string, JobDetail> = {
     'job123456': {
         jobPosition: 'Senior Software Engineer',
@@ -764,7 +760,7 @@ class CompanyInfoServer {
                     "Authorization": `Bearer ${ANY_MAIL_API_KEY}`,
                     "Content-Type": "application/json",
                 },
-                validateStatus: (status) => status >= 200 && status < 500, // Accept any response for custom handling
+                validateStatus: (status) => status >= 200 && status < 500,
             });
 
             console.error(`[API] Received response with status: ${response.status}`);
@@ -774,7 +770,6 @@ class CompanyInfoServer {
             console.error('[API] Response data:', data);
 
             if (response.status === 200 && data.success) {
-                // Successful response
                 return {
                     email: data.results.email,
                     valid: data.results.validation === "valid",
@@ -806,7 +801,7 @@ class CompanyInfoServer {
             console.error('[API] Error fetching employee email:', error);
 
             if (error instanceof McpError) {
-                throw error; // Re-throw MCP errors
+                throw error;
             }
 
             if (error.response) {
@@ -829,12 +824,9 @@ class CompanyInfoServer {
     }
 
     private mockFetchCompanyJobPostings(company: string, country: string, companyId: string) {
-        // Check if we have mock data for this company ID
         if (MOCK_JOB_POSTINGS[companyId]) {
-            // Return job postings from our mock data
             const jobPostings = MOCK_JOB_POSTINGS[companyId];
 
-            // Filter for just technical jobs (already filtered in our mock data)
             return {
                 company,
                 country,
@@ -843,7 +835,6 @@ class CompanyInfoServer {
                 timestamp: new Date().toISOString()
             };
         } else {
-            // Return empty result if company ID not found in mock data
             console.error(`[MOCK] No job postings found for company ID: ${companyId}`);
             return {
                 company,
@@ -856,9 +847,7 @@ class CompanyInfoServer {
     }
 
     private mockFetchJobPostingDetails(jobId: string) {
-        // Check if we have mock data for this job ID
         if (MOCK_JOB_DETAILS[jobId]) {
-            // Return job details from our mock data
             return {
                 jobId,
                 jobDetails: MOCK_JOB_DETAILS[jobId],
@@ -873,14 +862,11 @@ class CompanyInfoServer {
     }
 
     private mockFetchCompanyInformation(companyName: string, linkedInId?: string) {
-        // Determine which LinkedIn ID to use
         let linkId = linkedInId || this.generateLinkedInId(companyName);
 
-        // Check if we have mock data for this LinkedIn ID
         if (MOCK_COMPANY_INFO[linkId]) {
             const companyData = MOCK_COMPANY_INFO[linkId];
 
-            // Format the data for better readability and structure
             const formattedCompanyData = {
                 name: companyData.company_name,
                 companyId: companyData.linkedin_internal_id,
@@ -913,14 +899,11 @@ class CompanyInfoServer {
                 timestamp: new Date().toISOString()
             };
         } else {
-            // Try to find a partial match
             for (const [id, info] of Object.entries(MOCK_COMPANY_INFO)) {
                 if (info.company_name.toLowerCase().includes(companyName.toLowerCase())) {
-                    // Found a partial match, use it
                     linkId = id;
                     const companyData = MOCK_COMPANY_INFO[linkId];
 
-                    // Format the data for better readability and structure
                     const formattedCompanyData = {
                         name: companyData.company_name,
                         companyId: companyData.linkedin_internal_id,
@@ -955,7 +938,6 @@ class CompanyInfoServer {
                 }
             }
 
-            // If no match found at all, throw an error
             throw new McpError(
                 ErrorCode.InvalidParams,
                 `Company information not found for: ${companyName} with LinkedIn ID: ${linkId}`
@@ -964,7 +946,6 @@ class CompanyInfoServer {
     }
 
     private generateLinkedInId(companyName: string): string {
-        // Common company name patterns on LinkedIn
         const knownCompanyIds: { [key: string]: string } = {
             'rtl nederland': 'rtl-nederland',
             'rtl': 'rtl-nederland',
@@ -1003,7 +984,6 @@ class CompanyInfoServer {
             'booking': 'booking-com',
         };
 
-        // Check if the company name is in our known list
         const lowerName = companyName.toLowerCase();
         for (const [key, value] of Object.entries(knownCompanyIds)) {
             if (lowerName.includes(key)) {
@@ -1011,13 +991,11 @@ class CompanyInfoServer {
             }
         }
 
-        // Otherwise, generate a likely LinkedIn ID
-        // Convert to lowercase, replace spaces with hyphens, remove special characters
         return companyName
             .toLowerCase()
-            .replace(/[^\w\s-]/g, '')  // Remove special characters
-            .replace(/\s+/g, '-')      // Replace spaces with hyphens
-            .replace(/-+/g, '-')       // Replace multiple hyphens with single hyphen
+            .replace(/[^\w\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
             .trim();
     }
 
