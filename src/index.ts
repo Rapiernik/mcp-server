@@ -10,6 +10,7 @@ const BRIGHT_DATA_BEARER_TOKEN = process.env.BRIGHT_DATA_BEARER_TOKEN;
 const BRIGHT_DATA_URL = 'https://api.brightdata.com/datasets/v3/trigger';
 const COMPANIES_DATASET_ID = 'gd_l1vikfnt1wgvvqz95w';
 const COMPANY_POSTS_DATASET_ID = 'gd_lyy3tktm25m4avu764';
+const JOB_POSTINGS_DATASET_ID = 'gd_lpfll7v5hcqtkxl6l';
 
 const server = new McpServer({
     name: "company-info-server",
@@ -20,6 +21,65 @@ process.on('SIGINT', async () => {
     await server.close();
     process.exit(0);
 });
+
+server.tool(
+    "get_company_job_postings",
+    {
+        snapshot_id: z.string().describe('The snapshot ID returned from initiate_company_job_postings_collection')
+    },
+    async ({snapshot_id}) => {
+        console.error(`[API] Checking job search results for snapshot ID: ${snapshot_id}`);
+
+        const result = await getCompanyJobPostings(snapshot_id);
+
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: JSON.stringify(result, null, 2),
+                },
+            ],
+        };
+    }
+);
+
+server.tool(
+    "initiate_company_job_postings_collection",
+    {
+        location: z.enum(['The Netherlands', 'Belgium']).describe('Location to search for jobs'),
+        country: z.enum(['NL', 'BE']).describe('Country code for the location'),
+        time_range: z.enum(['Past 24 hours', 'Past week', 'Past month', 'Any time']).describe('How recent the job postings should be'),
+        company: z.string().describe('Specific company to search for jobs at')
+    },
+    async (params) => {
+        console.error(`[API] Initiating job search with parameters: ${JSON.stringify(params)}`);
+
+        const searchParams = {
+            location: params.location,
+            country: params.country,
+            time_range: params.time_range,
+            company: params.company
+        }
+
+        const snapshotId = await initiateCompanyJobPostingsCollection(searchParams);
+
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: JSON.stringify({
+                        message: "Job search has been initiated successfully",
+                        search_params: searchParams,
+                        snapshot_id: snapshotId,
+                        status: "processing",
+                        next_step: "Use the get_job_search_results tool with this snapshot_id to retrieve results",
+                        estimated_time: "This process typically takes 2-5 minutes"
+                    }, null, 2),
+                },
+            ],
+        };
+    }
+);
 
 server.tool(
     "initiate_company_posts_collection",
@@ -33,7 +93,6 @@ server.tool(
             throw new Error('You must provide a valid LinkedIn company URL');
         }
 
-        // Create a single-item array with the URL
         const companyUrl = [{url}];
         const snapshotId = await initiateCompanyPostsCollection(companyUrl);
 
@@ -378,7 +437,6 @@ async function getCompanyPosts(snapshotId: string) {
     }
 
     try {
-        // First check the progress
         const progressResponse = await axios.get(
             `https://api.brightdata.com/datasets/v3/progress/${snapshotId}`,
             {
@@ -392,7 +450,6 @@ async function getCompanyPosts(snapshotId: string) {
             throw new Error('Failed to check dataset progress: Empty response');
         }
 
-        // If not ready, return progress status
         if (progressResponse.data.status !== 'ready') {
             return {
                 status: progressResponse.data.status || 'processing',
@@ -403,7 +460,6 @@ async function getCompanyPosts(snapshotId: string) {
             };
         }
 
-        // If ready, fetch the data
         console.error(`[API] Fetching LinkedIn posts snapshot data...`);
         const snapshotResponse = await axios.get(
             `https://api.brightdata.com/datasets/v3/snapshot/${snapshotId}?format=json`,
@@ -418,12 +474,10 @@ async function getCompanyPosts(snapshotId: string) {
             throw new Error('Failed to fetch LinkedIn posts snapshot: Empty response');
         }
 
-        // Process and format the posts data
         const postsData = Array.isArray(snapshotResponse.data)
             ? snapshotResponse.data
             : [snapshotResponse.data];
 
-        // Group posts by company if multiple companies in response
         const groupedByCompany = postsData.reduce((acc, post) => {
             const companyId = post.user_id || post.discovery_input?.url?.match(/company\/([^\/]+)/)?.[1] || 'unknown';
 
@@ -452,7 +506,6 @@ async function getCompanyPosts(snapshotId: string) {
             return acc;
         }, {});
 
-        // Convert to array format
         const formattedCompanyPosts = Object.values(groupedByCompany).map((company: any) => ({
             company: company.company,
             posts: company.posts,
@@ -472,6 +525,226 @@ async function getCompanyPosts(snapshotId: string) {
     } catch (error: any) {
         console.error('[API] Error retrieving LinkedIn company posts:', error);
         throw new Error(`Error retrieving LinkedIn company posts: ${error.message}`);
+    }
+}
+
+function isTechnicalJob(jobTitle: string) {
+    const techKeywords = [
+        'engineer',
+        'ingénieur',
+        'developer',
+        'développeur',
+        'architect',
+        'architecte',
+        'machine learning',
+        'apprentissage automatique',
+        'kunstmatige intelligentie',
+        'intelligence artificielle',
+        'backend',
+        'back end',
+        'arrière-plan',
+        'front end',
+        'frontend',
+        'interface utilisateur',
+        'full stack',
+        'fullstack',
+        'pile complète',
+        'software',
+        'logiciel',
+        'logiciel développeur',
+        'softwareontwikkelaar',
+        'développeur de logiciels',
+        'data scientist',
+        'scientifique des données',
+        'datawetenschapper',
+        'ml',
+        'apprentissage automatique',
+        'ai engineer',
+        'ingénieur en intelligence artificielle',
+        'artificial intelligence',
+        'intelligence artificielle',
+        'cloud',
+        'nuage',
+        'informatique en nuage',
+        'devops',
+        'security engineer',
+        'ingénieur en sécurité',
+        'beveiligingsingenieur',
+        'embedded',
+        'embarqué',
+        'systems engineer',
+        'ingénieur en systèmes',
+        'systeemingenieur',
+        'ingénieur système',
+        'robotics',
+        'robotique',
+        'robotica',
+        'computer vision',
+        'vision par ordinateur',
+        'computervisie',
+        'aws',
+        'amazon web services',
+        'azure',
+        'gcp',
+        'google cloud',
+        'cloud architect',
+        'architecte cloud',
+        'cloud ingenieur',
+        'ingénieur cloud',
+        'cloud engineer',
+        'cloud security',
+        'sécurité du cloud',
+        'cloudbeveiliging',
+        'kubernetes',
+        'docker',
+        'serverless',
+        'sans serveur',
+        'python',
+    ];
+
+    const lowerCaseTitle = jobTitle.toLowerCase();
+    const matches = techKeywords.filter(keyword => lowerCaseTitle.includes(keyword));
+    return matches.length > 0;
+}
+
+async function getCompanyJobPostings(snapshotId: string) {
+    if (!BRIGHT_DATA_BEARER_TOKEN) {
+        throw new Error('Missing Bright Data Bearer Token');
+    }
+
+    try {
+        const progressResponse = await axios.get(
+            `https://api.brightdata.com/datasets/v3/progress/${snapshotId}`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${BRIGHT_DATA_BEARER_TOKEN}`
+                }
+            }
+        );
+
+        if (!progressResponse.data) {
+            throw new Error('Failed to check dataset progress: Empty response');
+        }
+
+        if (progressResponse.data.status !== 'ready') {
+            return {
+                status: progressResponse.data.status || 'processing',
+                message: 'Get company job postings is still in progress',
+                progress: progressResponse.data,
+                snapshot_id: snapshotId,
+                next_step: "Please check again in a few moments"
+            };
+        }
+
+        console.error(`[API] Fetching job postings results...`);
+        const snapshotResponse = await axios.get(
+            `https://api.brightdata.com/datasets/v3/snapshot/${snapshotId}?format=json`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${BRIGHT_DATA_BEARER_TOKEN}`
+                }
+            }
+        );
+
+        if (!snapshotResponse.data) {
+            throw new Error('Failed to fetch job postings results: Empty response');
+        }
+
+        const jobsData = Array.isArray(snapshotResponse.data)
+            ? snapshotResponse.data
+            : [snapshotResponse.data];
+
+        const allFormattedJobs = jobsData.map(job => {
+            return {
+                id: job.job_posting_id,
+                title: job.job_title,
+                company: {
+                    name: job.company_name,
+                    id: job.company_id,
+                    url: job.company_url,
+                },
+                location: job.job_location,
+                country: job.country_code,
+                url: job.url,
+                posted: {
+                    date: job.job_posted_date,
+                    relativeTime: job.job_posted_time
+                },
+                applicants: job.job_num_applicants,
+                description: {
+                    summary: job.job_summary,
+                    formatted: job.job_description_formatted
+                },
+                isTechnical: isTechnicalJob(job.job_title || '')
+            };
+        });
+
+        const technicalJobs = allFormattedJobs.filter(job => job.isTechnical);
+        const searchParams = jobsData[0]?.discovery_input || {};
+
+        return {
+            status: 'ready',
+            message: 'Get company job postings completed successfully',
+            jobs: technicalJobs,
+            jobCount: technicalJobs.length,
+            searchParameters: {
+                location: searchParams.location,
+                country: searchParams.country,
+                timeRange: searchParams.time_range,
+                company: searchParams.company
+            },
+            snapshot_id: snapshotId,
+            timestamp: new Date().toISOString()
+        };
+    } catch (error: any) {
+        console.error('[API] Error retrieving job postings results:', error);
+        throw new Error(`Error retrieving job postings results: ${error.message}`);
+    }
+}
+
+async function initiateCompanyJobPostingsCollection(searchParams: {
+    location: string,
+    country: string,
+    time_range: string,
+    company: string
+}): Promise<string> {
+    if (!BRIGHT_DATA_BEARER_TOKEN) {
+        throw new Error('Missing Bright Data Bearer Token');
+    }
+
+    try {
+        console.error(`[API] Triggering Bright Data dataset collection for job search: ${JSON.stringify(searchParams)}`);
+
+        const payload = [{
+            keyword: '',
+            location: searchParams.location,
+            country: searchParams.country,
+            time_range: searchParams.time_range,
+            job_type: '',
+            experience_level: '',
+            remote: '',
+            company: searchParams.company
+        }]
+
+        const triggerResponse = await axios.post(
+            `${BRIGHT_DATA_URL}?dataset_id=${JOB_POSTINGS_DATASET_ID}&include_errors=true&type=discover_new&discover_by=keyword`,
+            payload,
+            {
+                headers: {
+                    'Authorization': `Bearer ${BRIGHT_DATA_BEARER_TOKEN}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        if (!triggerResponse.data || !triggerResponse.data.snapshot_id) {
+            throw new Error('Failed to trigger job search: Invalid response');
+        }
+
+        return triggerResponse.data.snapshot_id;
+    } catch (error: any) {
+        console.error('[API] Error initiating job search:', error);
+        throw new Error(`Error initiating job search: ${error.message}`);
     }
 }
 
